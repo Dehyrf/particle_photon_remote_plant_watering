@@ -6,6 +6,7 @@
 #define ONE_SYNC_MILLIS (60 * 60 * 1000) //Define leeway for clock variation (is currently allowing 1 hour variation)
 unsigned long lastSync = millis();  //Timer from last time sync used later for getting realtime data
 int startPin = D6;  //Will start/stop the watering if connected/disconnected for a hardware failsafe
+bool enabled = true;//to hold startPin value
 int relayPin = D7;  //Pin turning pump control relay on/off and status can be seen on the board's small led
 int maxTime = (10 * 1000);   //Max time in seconds to run the pump per sitting
 int minDelay = (4 * 60 * 60 * 1000);    //Minimum amount of time in hours between watering sessions (to prevent water spillage)
@@ -22,7 +23,7 @@ void setup()
    //Start pin configuration
    pinMode(startPin, INPUT);
    pinMode(relayPin, OUTPUT);
-   digitalWrite(relayPin, LOW); //Ensure relay pin is low/off at the start
+   digitalWrite(relayPin, HIGH); //Ensure relay pin is low/off at the start
    
    if (Particle.connected() == false) { //Connect particle to cloud if it is not already
         Particle.connect();
@@ -32,21 +33,14 @@ void setup()
    Particle.variable("total", &totalWatered, INT);  //Shows total times watered since initialized
    Particle.function("waterMe", remoteWater);       //Declare Particle function for the relay
    
-   /*
-   //Debug use only
-   Particle.variable("lastTime", &lastTime, INT);
-   Particle.variable("lastAutoTime", &lastTime, INT);
-   Particle.variable("lastSync", &lastSync, INT);
-   Particle.variable("milliseconds", &temp, INT);
-   remoteWater("water");
-   */
+   remoteWater("water");    //Run first water cycle
 }
 
 void loop()
 {
-    //temp = millis(); //For Debug use only
+    enabled = digitalRead(startPin);    //Read hardware enabling pin data
     
-    if ((millis() - lastTime) > minDelay)   //Make sure time delay between watering sessions is being respected
+    if (enabled && (millis() - lastTime) > minDelay)   //Make sure time delay between watering sessions is being respected
         canWater = 1;
     else
         canWater = 0;
@@ -65,11 +59,11 @@ void loop()
 }
 
 int remoteWater(String in) {    //Water and reset time since last watering cycle
-    if (in == "water" && canWater == 1) {
+    if (enabled && canWater == 1) {
         lastTime = millis();
-        digitalWrite(relayPin, HIGH);
-        delay(maxTime);
         digitalWrite(relayPin, LOW);
+        delay(maxTime);
+        digitalWrite(relayPin, HIGH);
         totalWatered++;
         return 1;
     }
