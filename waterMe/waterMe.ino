@@ -83,5 +83,5 @@ int remoteWater(String in) {    //Water and reset time since last watering cycle
         return 1;
     }
     else
-        return -1;
+        return 0;
 }
